@@ -1,13 +1,65 @@
 // البيانات المحلية
 let currentUser = null;
 let currentUserType = null;
-let trainers = JSON.parse(localStorage.getItem('trainers')) || [];
-let registrationRequests = JSON.parse(localStorage.getItem('registrationRequests')) || [];
-let questions = JSON.parse(localStorage.getItem('questions')) || [];
-let clients = JSON.parse(localStorage.getItem('clients')) || [];
-let surveys = JSON.parse(localStorage.getItem('surveys')) || [];
-let clientAnswers = JSON.parse(localStorage.getItem('clientAnswers')) || {};
-let trainerLogos = JSON.parse(localStorage.getItem('trainerLogos')) || {};
+import { ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const trainersRef = ref(db, "trainers");
+
+onValue(trainersRef, (snapshot) => {
+  trainers = snapshot.val() || [];
+  renderTrainers();
+});
+let registrationRequests = [];
+
+const registrationRef = ref(db, "registrationRequests");
+
+onValue(registrationRef, (snapshot) => {
+  registrationRequests = snapshot.val() || {};
+  renderRegistrationRequests();
+});
+
+let questions = [];
+
+const questionsRef = ref(db, "questions");
+
+onValue(questionsRef, (snapshot) => {
+  questions = snapshot.val() || {};
+  renderQuestions();
+});
+
+let clients = [];
+
+const clientsRef = ref(db, "clients");
+
+onValue(clientsRef, (snapshot) => {
+  clients = snapshot.val() || {};
+  renderClients();
+});
+
+let surveys = [];
+
+const surveysRef = ref(db, "surveys");
+
+onValue(surveysRef, (snapshot) => {
+  surveys = snapshot.val() || {};
+  renderSurveys();
+});
+
+const answersRef = ref(db, "clientAnswers");
+
+onValue(answersRef, (snapshot) => {
+  clientAnswers = snapshot.val() || {};
+  renderAnswers();
+});
+
+let trainerLogos = {};
+
+const logosRef = ref(db, "trainerLogos");
+
+onValue(logosRef, (snapshot) => {
+  trainerLogos = snapshot.val() || {};
+  renderTrainerLogos();
+});
 
 // كود المدير الافتراضي
 const ADMIN_CODE = 'admin2025';
@@ -36,6 +88,15 @@ function initializeEventListeners() {
   document.getElementById('trainerForm').addEventListener('submit', handleTrainerActivation);
   document.getElementById('questionForm').addEventListener('submit', handleQuestionSubmission);
   document.getElementById('logoForm').addEventListener('submit', handleLogoUpload);
+import { onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const registrationRef = ref(db, "registrationRequests");
+
+onValue(registrationRef, (snapshot) => {
+  const data = snapshot.val() || {};
+  renderRegistrationRequests(data);
+});
+
   
   // زر الاستبيان
   document.getElementById('surveyBtn').addEventListener('click', function() {
@@ -96,7 +157,7 @@ function handleLogin(e) {
 // التسجيل الجديد
 function handleRegistration(e) {
   e.preventDefault();
-  
+
   const formData = {
     name: document.getElementById('regName').value,
     phone: document.getElementById('regPhone').value,
@@ -105,13 +166,19 @@ function handleRegistration(e) {
     source: document.getElementById('regSource').value,
     timestamp: new Date().toISOString()
   };
-  
-  registrationRequests.push(formData);
-  localStorage.setItem('registrationRequests', JSON.stringify(registrationRequests));
-  
-  alert('تم إرسال طلب التسجيل بنجاح! سيتم مراجعته من قبل الإدارة.');
-  showScreen('loginScreen');
-  document.getElementById('registerForm').reset();
+
+  const registrationRef = ref(db, "registrationRequests");
+
+  push(registrationRef, formData)
+    .then(() => {
+      alert('تم إرسال طلب التسجيل بنجاح! سيتم مراجعته من قبل الإدارة.');
+      showScreen('loginScreen');
+      document.getElementById('registerForm').reset();
+    })
+    .catch((error) => {
+      console.error("خطأ في الإرسال:", error);
+      alert("حدث خطأ أثناء الإرسال، حاول مرة أخرى.");
+    });
 }
 
 // تحميل خيارات المدربين
@@ -144,7 +211,9 @@ function handleTrainerActivation(e) {
   };
   
   trainers.push(trainerData);
-  localStorage.setItem('trainers', JSON.stringify(trainers));
+import { set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+set(ref(db, "trainers"), trainers);
   
   loadTrainerOptions();
   loadTrainersTable();
@@ -315,25 +384,59 @@ function loadQuestionsList() {
 // رفع الشعار
 function handleLogoUpload(e) {
   e.preventDefault();
-  
+
   const trainerCode = document.getElementById('logoTrainer').value;
   const fileInput = document.getElementById('logoFile');
-  
+
   if (fileInput.files[0]) {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      trainerLogos[trainerCode] = e.target.result;
-      localStorage.setItem('trainerLogos', JSON.stringify(trainerLogos));
-      loadLogosGallery();
-      document.getElementById('logoForm').reset();
-      alert('تم رفع الشعار بنجاح!');
-    };
-    reader.readAsDataURL(fileInput.files[0]);
+    const file = fileInput.files[0];
+    const storage = getStorage();
+
+    // مسار التخزين في Firebase Storage
+    const storagePath = 'trainerLogos/' + trainerCode + '_' + Date.now();
+    const logoStorageRef = storageRef(storage, storagePath);
+
+    // رفع الملف
+    uploadBytes(logoStorageRef, file)
+      .then(() => getDownloadURL(logoStorageRef)) // الحصول على رابط الصورة
+      .then((downloadURL) => {
+        // نخزن رابط الصورة والمسار في قاعدة البيانات
+        const logoDbRef = ref(db, "trainerLogos/" + trainerCode);
+
+        return set(logoDbRef, {
+          url: downloadURL,
+          storagePath: storagePath,
+          uploadedAt: new Date().toISOString()
+        });
+      })
+      .then(() => {
+        loadLogosGallery(); // تحديث المعرض فورًا
+        document.getElementById('logoForm').reset();
+        alert('تم رفع الشعار بنجاح!');
+      })
+      .catch((error) => {
+        console.error("خطأ في رفع الشعار:", error);
+        alert("حدث خطأ أثناء رفع الشعار");
+      });
+  } else {
+    alert("الرجاء اختيار ملف أولًا");
   }
 }
 
 // تحميل معرض الشعارات
-function loadLogosGallery() {
+import { ref, onValue, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getStorage, ref as storageRef, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+
+// Listener لمعرض الشعارات أونلاين
+const logosRef = ref(db, "trainerLogos");
+
+onValue(logosRef, (snapshot) => {
+  const data = snapshot.val() || {};
+  renderLogos(data);
+});
+
+// تحميل معرض الشعارات
+function renderLogos(trainerLogos) {
   const gallery = document.getElementById('logosGallery');
   gallery.innerHTML = '';
   
@@ -344,10 +447,10 @@ function loadLogosGallery() {
       logoDiv.className = 'logo-item';
       logoDiv.innerHTML = `
         <div>
-          <img src="${logoData}" alt="${trainer.name}" class="logo-preview">
+          <img src="${logoData.url}" alt="${trainer.name}" class="logo-preview">
           <span>${trainer.name}</span>
         </div>
-        <button class="action-btn reject-btn" onclick="deleteLogo('${trainerCode}')">
+        <button class="action-btn reject-btn" onclick="deleteLogo('${trainerCode}', '${logoData.storagePath}')">
           <i class="fas fa-trash"></i> حذف
         </button>
       `;
@@ -356,13 +459,27 @@ function loadLogosGallery() {
   });
 }
 
-// حذف الشعار
-function deleteLogo(trainerCode) {
-  if (confirm('هل أنت متأكد من حذف هذا الشعار؟')) {
-    delete trainerLogos[trainerCode];
-    localStorage.setItem('trainerLogos', JSON.stringify(trainerLogos));
-    loadLogosGallery();
-  }
+// حذف الشعار أونلاين
+function deleteLogo(trainerCode, storagePath) {
+  if (!confirm('هل أنت متأكد من حذف هذا الشعار؟')) return;
+
+  const logoDbRef = ref(db, "trainerLogos/" + trainerCode);
+  const storage = getStorage();
+  const logoStorageRef = storageRef(storage, storagePath);
+
+  // أولاً نحذف من Firebase Storage
+  deleteObject(logoStorageRef)
+    .then(() => {
+      // بعد كده نحذف من قاعدة البيانات
+      return remove(logoDbRef);
+    })
+    .then(() => {
+      alert('تم حذف الشعار بنجاح!');
+    })
+    .catch((error) => {
+      console.error("خطأ في حذف الشعار:", error);
+      alert('حدث خطأ أثناء الحذف');
+    });
 }
 
 // تحميل بيانات المدير
@@ -661,38 +778,86 @@ document.querySelectorAll('.modal-content').forEach(content => {
     e.stopPropagation();
   });
 });
-
 // حفظ البيانات تلقائياً كل 30 ثانية
-setInterval(() => {
-  localStorage.setItem('trainers', JSON.stringify(trainers));
-  localStorage.setItem('registrationRequests', JSON.stringify(registrationRequests));
-  localStorage.setItem('questions', JSON.stringify(questions));
-  localStorage.setItem('clients', JSON.stringify(clients));
-  localStorage.setItem('surveys', JSON.stringify(surveys));
-  localStorage.setItem('clientAnswers', JSON.stringify(clientAnswers));
-  localStorage.setItem('trainerLogos', JSON.stringify(trainerLogos));
-}, 30000);
+// نعمل References لكل جدول في Firebase
+const trainersRef = ref(db, "trainers");
+const registrationRef = ref(db, "registrationRequests");
+const questionsRef = ref(db, "questions");
+const clientsRef = ref(db, "clients");
+const surveysRef = ref(db, "surveys");
+const clientAnswersRef = ref(db, "clientAnswers");
+const trainerLogosRef = ref(db, "trainerLogos");
+
+// ---------------------------
+// 1️⃣ الاستماع للتغييرات وتحديث المتغيرات تلقائيًا
+onValue(trainersRef, snapshot => trainers = snapshot.val() || {});
+onValue(registrationRef, snapshot => registrationRequests = snapshot.val() || {});
+onValue(questionsRef, snapshot => questions = snapshot.val() || {});
+onValue(clientsRef, snapshot => clients = snapshot.val() || {});
+onValue(surveysRef, snapshot => surveys = snapshot.val() || {});
+onValue(clientAnswersRef, snapshot => clientAnswers = snapshot.val() || {});
+onValue(trainerLogosRef, snapshot => trainerLogos = snapshot.val() || {});
+
+// ---------------------------
+// 2️⃣ الدالة لحفظ أي تغيير مباشرة على Firebase
+function saveDataOnline() {
+  set(trainersRef, trainers);
+  set(registrationRef, registrationRequests);
+  set(questionsRef, questions);
+  set(clientsRef, clients);
+  set(surveysRef, surveys);
+  set(clientAnswersRef, clientAnswers);
+  set(trainerLogosRef, trainerLogos);
+}
+
+// ---------------------------
+// 3️⃣ حفظ تلقائي كل 30 ثانية (اختياري، لو عندك تغييرات متراكمة)
+setInterval(saveDataOnline, 30000);
 
 // إضافة بيانات تجريبية للاختبار (يمكن حذفها في الإنتاج)
-if (trainers.length === 0) {
-  trainers.push({
-    name: 'أحمد محمد',
-    phone: '01234567890',
-    amount: '500',
-    code: 'TRAINER001',
-    allowEdit: true,
-    timestamp: new Date().toISOString()
-  });
-  localStorage.setItem('trainers', JSON.stringify(trainers));
+import { ref, set, push, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// Reference لجدول المدربين
+const trainersRef = ref(db, "trainers");
+
+// الاستماع لأي تغيير في المدربين (التزامن مع كل الأجهزة)
+onValue(trainersRef, (snapshot) => {
+  trainers = snapshot.val() || [];
+});
+
+// إضافة مدرب افتراضي إذا لم يوجد مدرب
+function addDefaultTrainer() {
+  if (!trainers || trainers.length === 0) {
+    const defaultTrainer = {
+      name: 'أحمد محمد',
+      phone: '01234567890',
+      amount: '500',
+      code: 'TRAINER001',
+      allowEdit: true,
+      timestamp: new Date().toISOString()
+    };
+
+    // نستخدم push لإضافة المدرب الجديد في Firebase
+    push(trainersRef, defaultTrainer)
+      .then(() => {
+        console.log("تم إضافة المدرب الافتراضي بنجاح!");
+      })
+      .catch((error) => {
+        console.error("خطأ أثناء إضافة المدرب الافتراضي:", error);
+      });
+  }
 }
+
+// استدعاء الدالة عند تحميل الصفحة أو بدء المشروع
+addDefaultTrainer();
 
 if (questions.length === 0) {
   const sampleQuestion = {
     day: 1,
     openDate: new Date().toISOString(),
     closeDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    text: 'ما هو أول شهر في السنة الهجرية؟',
-    answers: ['محرم', 'صفر', 'ربيع الأول', 'ربيع الثاني'],
+    text: 'لزياده القوه العضلية يفضل؟',
+    answers: ['اوزان ثقيله وتكررات قليله', 'كارديو فقط', 'اطالات فقط', 'اوزان خفيفة وتكررات عاليه جدا'],
     correctAnswer: 0,
     image: null,
     timestamp: new Date().toISOString()
