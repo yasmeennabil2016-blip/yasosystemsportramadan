@@ -1,4 +1,4 @@
-// البيانات المحلية
+// البيانات التزامن
 let currentUser = null;
 let currentUserType = null;
 import { ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
@@ -430,6 +430,20 @@ function loadQuestionsList() {
   container.innerHTML = '';
 
   // ترتيب الأسئلة حسب اليوم
+  import { ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// Reference لجدول الأسئلة
+const questionsRef = ref(db, "questions");
+
+// الاستماع للتغييرات لحظيًا
+onValue(questionsRef, (snapshot) => {
+  const data = snapshot.val() || {};
+  questions = Object.values(data); // تحويل الكائن لمصفوفة للعرض
+
+  const container = document.getElementById('questionsList');
+  container.innerHTML = '';
+
+  // عرض الأسئلة مرتبطة بالتزامن
   questions.sort((a, b) => a.day - b.day).forEach(question => {
     const questionDiv = document.createElement('div');
     questionDiv.className = 'question-item';
@@ -451,7 +465,7 @@ function loadQuestionsList() {
 
     container.appendChild(questionDiv);
   });
-}
+});
 
 // رفع الشعار
 function handleLogoUpload(e) {
@@ -779,9 +793,20 @@ function saveClientAnswer(answerIndex, isCorrect) {
 }
 
 // إرسال الاستبيان
+import { ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// Reference لجدول الاستبيانات
+const surveysRef = ref(db, "surveys");
+
+// الاستماع للتغييرات لحظيًا (اختياري إذا حابة تظهر الاستبيانات فورًا لكل الأجهزة)
+onValue(surveysRef, snapshot => surveys = snapshot.val() ? Object.values(snapshot.val()) : []);
+
+// دالة إرسال الاستبيان
 function handleSurveySubmission(e) {
   e.preventDefault();
   
+  if (!currentUser || !currentUser.code) return;
+
   const formData = new FormData(e.target);
   const surveyData = {
     clientCode: currentUser.code,
@@ -792,13 +817,18 @@ function handleSurveySubmission(e) {
     recommend: formData.get('recommend'),
     timestamp: new Date().toISOString()
   };
-  
-  surveys.push(surveyData);
-  localStorage.setItem('surveys', JSON.stringify(surveys));
-  
-  alert('تم إرسال الاستبيان بنجاح! شكراً لك');
-  closeModal('surveyModal');
-  e.target.reset();
+
+  // حفظ الاستبيان على Firebase للتزامن اللحظي مع كل الأجهزة
+  push(surveysRef, surveyData)
+    .then(() => {
+      alert('تم إرسال الاستبيان بنجاح! شكراً لك');
+      closeModal('surveyModal');
+      e.target.reset();
+    })
+    .catch(error => {
+      console.error("حدث خطأ أثناء إرسال الاستبيان:", error);
+      alert('حدث خطأ أثناء إرسال الاستبيان');
+    });
 }
 
 // عرض تبويبات المدير
