@@ -279,34 +279,68 @@ function loadRegistrationRequests() {
 }
 
 // قبول طلب التسجيل
+import { ref, push, set, remove, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// References لقاعدة البيانات
+const registrationRef = ref(db, "registrationRequests");
+const clientsRef = ref(db, "clients");
+
+// الاستماع للتغييرات لحظيًا
+onValue(registrationRef, snapshot => registrationRequests = snapshot.val() || []);
+onValue(clientsRef, snapshot => clients = snapshot.val() || []);
+
+// دالة قبول طلب تسجيل
 function approveRequest(index) {
   const request = registrationRequests[index];
   const clientCode = generateClientCode();
-  
+
   const client = {
     ...request,
     code: clientCode,
     approved: true,
     approvedAt: new Date().toISOString()
   };
-  
-  clients.push(client);
-  localStorage.setItem('clients', JSON.stringify(clients));
-  
-  registrationRequests.splice(index, 1);
-  localStorage.setItem('registrationRequests', JSON.stringify(registrationRequests));
-  
-  loadRegistrationRequests();
-  alert(`تم قبول الطلب! كود العميل: ${clientCode}`);
+
+  // 1️⃣ إضافة العميل الجديد إلى Firebase
+  push(clientsRef, client)
+    .then(() => {
+      // 2️⃣ إزالة الطلب من قائمة الطلبات في Firebase
+      const requestKey = Object.keys(registrationRequests)[index]; // نحصل على مفتاح الطلب
+      return remove(ref(db, `registrationRequests/${requestKey}`));
+    })
+    .then(() => {
+      loadRegistrationRequests(); // تحديث العرض فورًا
+      alert(`تم قبول الطلب! كود العميل: ${clientCode}`);
+    })
+    .catch(error => {
+      console.error("خطأ أثناء الموافقة على الطلب:", error);
+      alert("حدث خطأ أثناء معالجة الطلب");
+    });
 }
 
+
 // رفض طلب التسجيل
+import { ref, remove, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// الاستماع للطلبات لحظيًا
+const registrationRef = ref(db, "registrationRequests");
+onValue(registrationRef, snapshot => registrationRequests = snapshot.val() || []);
+
+// دالة رفض الطلب
 function rejectRequest(index) {
-  registrationRequests.splice(index, 1);
-  localStorage.setItem('registrationRequests', JSON.stringify(registrationRequests));
-  loadRegistrationRequests();
-  alert('تم رفض الطلب');
+  const requestKey = Object.keys(registrationRequests)[index]; // الحصول على مفتاح الطلب
+
+  remove(ref(db, `registrationRequests/${requestKey}`))
+    .then(() => {
+      loadRegistrationRequests(); // تحديث العرض فورًا
+      alert('تم رفض الطلب');
+    })
+    .catch(error => {
+      console.error("خطأ أثناء رفض الطلب:", error);
+      alert('حدث خطأ أثناء رفض الطلب');
+    });
 }
+
 
 // توليد كود العميل
 function generateClientCode() {
@@ -334,34 +368,72 @@ function handleQuestionSubmission(e) {
   };
   
   // التحقق من عدم وجود سؤال لنفس اليوم
-  const existingQuestion = questions.find(q => q.day === questionData.day);
-  if (existingQuestion) {
+ import { ref, set, push, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// Reference لجدول الأسئلة
+const questionsRef = ref(db, "questions");
+
+// الاستماع للتغييرات لحظيًا
+onValue(questionsRef, snapshot => questions = snapshot.val() || []);
+
+// دالة حفظ السؤال
+function saveQuestion(questionData) {
+  // نبحث إذا يوجد سؤال لليوم نفسه
+  const existingQuestionIndex = questions.findIndex(q => q.day === questionData.day);
+
+  if (existingQuestionIndex !== -1) {
     if (confirm('يوجد سؤال لهذا اليوم بالفعل. هل تريد استبداله؟')) {
-      const index = questions.findIndex(q => q.day === questionData.day);
-      questions[index] = questionData;
+      const questionKey = Object.keys(questions)[existingQuestionIndex];
+      set(ref(db, `questions/${questionKey}`), questionData)
+        .then(() => {
+          loadQuestionsList();
+          document.getElementById('questionForm').reset();
+          alert('تم حفظ السؤال بنجاح!');
+        })
+        .catch(error => {
+          console.error("خطأ في حفظ السؤال:", error);
+          alert('حدث خطأ أثناء حفظ السؤال');
+        });
     } else {
       return;
     }
   } else {
-    questions.push(questionData);
+    // إضافة السؤال الجديد
+    push(questionsRef, questionData)
+      .then(() => {
+        loadQuestionsList();
+        document.getElementById('questionForm').reset();
+        alert('تم حفظ السؤال بنجاح!');
+      })
+      .catch(error => {
+        console.error("خطأ في حفظ السؤال:", error);
+        alert('حدث خطأ أثناء حفظ السؤال');
+      });
   }
-  
-  localStorage.setItem('questions', JSON.stringify(questions));
-  loadQuestionsList();
-  document.getElementById('questionForm').reset();
-  
-  alert('تم حفظ السؤال بنجاح!');
 }
-
 // تحميل قائمة الأسئلة
+import { ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// Reference لجدول الأسئلة
+const questionsRef = ref(db, "questions");
+
+// الاستماع للتغييرات لحظيًا
+onValue(questionsRef, (snapshot) => {
+  const data = snapshot.val() || {};
+  questions = Object.values(data); // تحويل الكائن إلى مصفوفة
+  loadQuestionsList();             // تحديث العرض فورًا عند أي تغيير
+});
+
+// دالة عرض الأسئلة
 function loadQuestionsList() {
   const container = document.getElementById('questionsList');
   container.innerHTML = '';
-  
+
+  // ترتيب الأسئلة حسب اليوم
   questions.sort((a, b) => a.day - b.day).forEach(question => {
     const questionDiv = document.createElement('div');
     questionDiv.className = 'question-item';
-    
+
     questionDiv.innerHTML = `
       <div class="question-header">
         <span class="question-day">اليوم ${question.day}</span>
@@ -376,7 +448,7 @@ function loadQuestionsList() {
         `).join('')}
       </div>
     `;
-    
+
     container.appendChild(questionDiv);
   });
 }
@@ -664,18 +736,41 @@ function handleAnswerSubmission() {
   const isCorrect = answerIndex === window.currentQuestion.correctAnswer;
   
   // حفظ الإجابة
-  if (!clientAnswers[currentUser.code]) {
-    clientAnswers[currentUser.code] = {};
+ import { ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// Reference لإجابات العملاء
+const clientAnswersRef = ref(db, "clientAnswers");
+
+// الاستماع للتغييرات لحظيًا
+onValue(clientAnswersRef, snapshot => clientAnswers = snapshot.val() || {});
+
+// دالة حفظ إجابة العميل
+function saveClientAnswer(answerIndex, isCorrect) {
+  if (!currentUser || !currentUser.code) return;
+
+  const userCode = currentUser.code;
+  const questionDay = window.currentQuestion.day;
+
+  if (!clientAnswers[userCode]) {
+    clientAnswers[userCode] = {};
   }
-  
-  clientAnswers[currentUser.code][window.currentQuestion.day] = {
+
+  clientAnswers[userCode][questionDay] = {
     answer: answerIndex,
     isCorrect: isCorrect,
     timestamp: new Date().toISOString()
   };
-  
-  localStorage.setItem('clientAnswers', JSON.stringify(clientAnswers));
-  
+
+  // حفظ الإجابة على Firebase للتزامن اللحظي
+  set(ref(db, `clientAnswers/${userCode}/${questionDay}`), clientAnswers[userCode][questionDay])
+    .then(() => {
+      console.log("تم حفظ إجابة العميل بنجاح");
+    })
+    .catch(error => {
+      console.error("حدث خطأ أثناء حفظ الإجابة:", error);
+    });
+}
+
   // عرض النتيجة
   alert(isCorrect ? 'إجابة صحيحة! أحسنت' : 'إجابة خاطئة، حاول مرة أخرى غداً');
   
@@ -849,19 +944,39 @@ function addDefaultTrainer() {
 }
 
 // استدعاء الدالة عند تحميل الصفحة أو بدء المشروع
+import { ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// أولًا نتأكد من إضافة المدرب الافتراضي
 addDefaultTrainer();
 
-if (questions.length === 0) {
-  const sampleQuestion = {
-    day: 1,
-    openDate: new Date().toISOString(),
-    closeDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    text: 'لزياده القوه العضلية يفضل؟',
-    answers: ['اوزان ثقيله وتكررات قليله', 'كارديو فقط', 'اطالات فقط', 'اوزان خفيفة وتكررات عاليه جدا'],
-    correctAnswer: 0,
-    image: null,
-    timestamp: new Date().toISOString()
-  };
-  questions.push(sampleQuestion);
-  localStorage.setItem('questions', JSON.stringify(questions));
-}
+// Reference لجدول الأسئلة
+const questionsRef = ref(db, "questions");
+
+// الاستماع للتغييرات لحظيًا
+onValue(questionsRef, snapshot => {
+  questions = snapshot.val() ? Object.values(snapshot.val()) : [];
+
+  // إذا لم يوجد أي سؤال، أضف السؤال الافتراضي
+  if (questions.length === 0) {
+    const sampleQuestion = {
+      day: 1,
+      openDate: new Date().toISOString(),
+      closeDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      text: 'لزياده القوه العضلية يفضل؟',
+      answers: [
+        'اوزان ثقيله وتكررات قليله',
+        'كارديو فقط',
+        'اطالات فقط',
+        'اوزان خفيفة وتكررات عاليه جدا'
+      ],
+      correctAnswer: 0,
+      image: null,
+      timestamp: new Date().toISOString()
+    };
+
+    // حفظ السؤال على Firebase للتزامن مع كل الأجهزة
+    push(questionsRef, sampleQuestion)
+      .then(() => console.log("تم إضافة السؤال الافتراضي بنجاح"))
+      .catch(error => console.error("خطأ أثناء إضافة السؤال الافتراضي:", error));
+  }
+});
