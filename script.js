@@ -1010,3 +1010,32 @@ onValue(questionsRef, snapshot => {
       .catch(error => console.error("خطأ أثناء إضافة السؤال الافتراضي:", error));
   }
 });
+// --- كود التزامن التلقائي الذكي ---
+
+// 1. وظيفة الرفع التلقائي (تُستدعى عند أي تغيير)
+function autoSaveData() {
+    console.log("جاري حفظ البيانات تلقائياً...");
+    // هنا نستدعي نفس الوظيفة التي كان ينفذها زر "رفع"
+    if (typeof uploadData === "function") {
+        uploadData(); 
+    }
+}
+
+// 2. وظيفة التحديث التلقائي (تتحقق من وجود جديد كل 30 ثانية)
+setInterval(() => {
+    console.log("فحص التحديثات من السحابة...");
+    if (typeof downloadData === "function") {
+        downloadData();
+    }
+}, 30000); // 30000 مللي ثانية = 30 ثانية
+
+// 3. ربط التلقائي بكل أزرار الإدخال في الموقع
+document.querySelectorAll('button, input').forEach(element => {
+    element.addEventListener('change', () => {
+        // تأخير بسيط لضمان تحديث البيانات محلياً أولاً
+        setTimeout(autoSaveData, 1000);
+    });
+});
+
+
+    
