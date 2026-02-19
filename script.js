@@ -367,9 +367,6 @@ function handleQuestionSubmission(e) {
     timestamp: new Date().toISOString()
   };
   
-  // التحقق من عدم وجود سؤال لنفس اليوم
- import { ref, set, push, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
 // Reference لجدول الأسئلة
 const questionsRef = ref(db, "questions");
 
@@ -778,7 +775,7 @@ function saveClientAnswer(answerIndex, isCorrect) {
   // حفظ الإجابة على Firebase للتزامن اللحظي
   set(ref(db, `clientAnswers/${userCode}/${questionDay}`), clientAnswers[userCode][questionDay])
     .then(() => {
-      console.log("تم حفظ إجابة العميل بنجاح");
+  //    console.log("تم حفظ إجابة العميل بنجاح");
     })
     .catch(error => {
       console.error("حدث خطأ أثناء حفظ الإجابة:", error);
@@ -934,9 +931,7 @@ function saveDataOnline() {
   set(clientAnswersRef, clientAnswers);
   set(trainerLogosRef, trainerLogos);
 }
-
-// ---------------------------
-// 3️⃣ حفظ تلقائي كل 30 ثانية (اختياري، لو عندك تغييرات متراكمة)
+  // 3️⃣ حفظ تلقائي كل 30 ثانية (اختياري، لو عندك تغييرات متراكمة)
 setInterval(saveDataOnline, 30000);
 
 // إضافة بيانات تجريبية للاختبار (يمكن حذفها في الإنتاج)
@@ -965,7 +960,7 @@ function addDefaultTrainer() {
     // نستخدم push لإضافة المدرب الجديد في Firebase
     push(trainersRef, defaultTrainer)
       .then(() => {
-        console.log("تم إضافة المدرب الافتراضي بنجاح!");
+       // console.log("تم إضافة المدرب الافتراضي بنجاح!");
       })
       .catch((error) => {
         console.error("خطأ أثناء إضافة المدرب الافتراضي:", error);
@@ -1006,7 +1001,7 @@ onValue(questionsRef, snapshot => {
 
     // حفظ السؤال على Firebase للتزامن مع كل الأجهزة
     push(questionsRef, sampleQuestion)
-      .then(() => console.log("تم إضافة السؤال الافتراضي بنجاح"))
+     // .then(() => console.log("تم إضافة السؤال الافتراضي بنجاح"))
       .catch(error => console.error("خطأ أثناء إضافة السؤال الافتراضي:", error));
   }
 });
@@ -1014,7 +1009,7 @@ onValue(questionsRef, snapshot => {
 
 // 1. وظيفة الرفع التلقائي (تُستدعى عند أي تغيير)
 function autoSaveData() {
-    console.log("جاري حفظ البيانات تلقائياً...");
+ //   console.log("جاري حفظ البيانات تلقائياً...");
     // هنا نستدعي نفس الوظيفة التي كان ينفذها زر "رفع"
     if (typeof uploadData === "function") {
         uploadData(); 
@@ -1023,7 +1018,7 @@ function autoSaveData() {
 
 // 2. وظيفة التحديث التلقائي (تتحقق من وجود جديد كل 30 ثانية)
 setInterval(() => {
-    console.log("فحص التحديثات من السحابة...");
+ //   console.log("فحص التحديثات من السحابة...");
     if (typeof downloadData === "function") {
         downloadData();
     }
@@ -1038,4 +1033,4 @@ document.querySelectorAll('button, input').forEach(element => {
 });
 
 
-    
+  
