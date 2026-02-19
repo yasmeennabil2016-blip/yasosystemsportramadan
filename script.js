@@ -932,7 +932,7 @@ function saveDataOnline() {
   set(trainerLogosRef, trainerLogos);
 }
   // 3️⃣ حفظ تلقائي كل 30 ثانية (اختياري، لو عندك تغييرات متراكمة)
-setInterval(saveDataOnline, 30000);
+//setInterval(saveDataOnline, 30000);
 
 // إضافة بيانات تجريبية للاختبار (يمكن حذفها في الإنتاج)
 import { ref, set, push, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
@@ -969,18 +969,22 @@ function addDefaultTrainer() {
 }
 
 // استدعاء الدالة عند تحميل الصفحة أو بدء المشروع
-import { ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { ref, push, onValue } from 
+"https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// مرجع البيانات
+const questionsRef = ref(db, "questions");
 
 // أولًا نتأكد من إضافة المدرب الافتراضي
 addDefaultTrainer();
 
 // Reference لجدول الأسئلة
 const questionsRef = ref(db, "questions");
-
-// الاستماع للتغييرات لحظيًا
-onValue(questionsRef, snapshot => {
+// قراءة لحظية (التزامن الحقيقي)
+onValue(questionsRef, (snapshot) => {
   questions = snapshot.val() ? Object.values(snapshot.val()) : [];
-
+  renderQuestions();
+});
   // إذا لم يوجد أي سؤال، أضف السؤال الافتراضي
   if (questions.length === 0) {
     const sampleQuestion = {
@@ -1000,10 +1004,10 @@ onValue(questionsRef, snapshot => {
     };
 
     // حفظ السؤال على Firebase للتزامن مع كل الأجهزة
-    push(questionsRef, sampleQuestion)
-     // .then(() => console.log("تم إضافة السؤال الافتراضي بنجاح"))
-      .catch(error => console.error("خطأ أثناء إضافة السؤال الافتراضي:", error));
-  }
+   function saveQuestion(data) {
+  push(questionsRef, data)
+    .catch(error => console.error(error));
+}
 });
 // --- كود التزامن التلقائي الذكي ---
 
@@ -1017,7 +1021,7 @@ function autoSaveData() {
 }
 
 // 2. وظيفة التحديث التلقائي (تتحقق من وجود جديد كل 30 ثانية)
-setInterval(() => {
+//setInterval(() => {
  //   console.log("فحص التحديثات من السحابة...");
     if (typeof downloadData === "function") {
         downloadData();
