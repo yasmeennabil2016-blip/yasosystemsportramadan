@@ -25,6 +25,7 @@ select option {
   padding: 5px 10px;
 }
 
+
 * {
   margin: 0;
   padding: 0;
@@ -1206,11 +1207,9 @@ table tr:hover {
   transform: scaleY(0);
   transition: transform 0.3s ease;
 }
-
 .answer-option-modal.selected::before {
   transform: scaleY(1);
 }
-
 /* تأثيرات الإضاءة */
 .login-btn::after,
 .submit-btn::after {
@@ -1223,8 +1222,11 @@ table tr:hover {
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
   transition: left 0.6s;
 }
-
 .login-btn:hover::after,
 .submit-btn:hover::after {
   left: 100%;
+}
+/* إخفاء لوحة المزامنة اليدوية لجعل الموقع يبدو آلياً */
+.sync-panel-class { /* استبدلي هذا باسم الكلاس الخاص بالخانة الزرقاء */
+    display: none !important;
 }
